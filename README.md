@@ -25,8 +25,8 @@ This is just a PHP script. Run `slacker.php` any way you like. Here are some opt
 	$ chmod a+x slacker.php
 	$ ./slacker.php
 
-	$ chmod a+x slacker.PHP
-	$ sudo mv slacker.php /usr/local/bin/slacker
+	$ chmod a+x slacker.php
+	$ sudo cp slacker.php /usr/local/bin/slacker
 	$ slacker
 
 Configuration
@@ -55,6 +55,8 @@ or may not see new messages depending on how many friends you have.
 
 Wait a little while. You may see new messages. That's because we auto-refresh
 the room for you.
+
+Hit Escape to exit.
 
 There are literally no other features right now. There are no colors. There are
 no options. There are no "unread" counts. There are no unit tests. There's only

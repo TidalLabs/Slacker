@@ -1,3 +1,4 @@
+#!/usr/bin/php5
 <?php
 
 $tokenFile = $_SERVER['HOME']."/.slack_token";
