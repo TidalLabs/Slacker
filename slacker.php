@@ -283,11 +283,22 @@ class Pane
 class MenuPane extends Pane
 {
 
-	public $highlightedMenuItem = 0;
+	public $highlightedMenuItem = null;
 	public $highlightedMenuItemData;
 
 	public function renderSubmenu($title, $items, $startLineNumber)
 	{
+		// Check if we have a highlightedMenuItem set.
+		if ($this->highlightedMenuItem === null) {
+			$counter = $startLineNumber + 2;
+			foreach ($this->slack->channels as $channel) {
+				if ($channel['name'] === $this->currentChannel['name']) {
+					$this->highlightedMenuItem = $counter;
+				}
+				$counter++;
+			}
+		}
+
 		// Yes, we're just renaming the variable.
 		// Why two names? Because $startLineNumber really tells you what the
 		// variable is for.
@@ -302,7 +313,7 @@ class MenuPane extends Pane
 
 			$options = [];
 			if (
-				$this->currentChannel === $item['id']
+				$this->currentChannel['id'] === $item['id']
 				|| $this->highlightedMenuItem === $index
 			) {
 				$options['reverse'] = true;
