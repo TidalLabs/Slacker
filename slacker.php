@@ -50,6 +50,8 @@ class Slack
 	public $channels;
 	public $users;
 	public $messages;
+	public $groups;
+	public $ims;
 
 	function callPost($methodName, $data)
 	{
@@ -93,29 +95,77 @@ class Slack
 		return $json;
 	}
 
-	public function getChannels()
+	private function _fetchAndStore($methodName, $parameters, $localVariable, $resultVariable)
 	{
-		$result = $this->callGet('channels.list', ['exclude_archived' => 1]);
+		$result = $this->callGet($methodName, $parameters);
 
-		$this->channels = array();
-		foreach ($result['channels'] as $channel) {
-			$this->channels[$channel['id']] = $channel;
+		$this->{$localVariable} = [];
+
+		foreach ($result[$resultVariable] as $item) {
+			$this->{$localVariable}[$item['id']] = $item;
 		}
 
-		return $this->channels;
+		return $this->{$localVariable};
+	}
+
+	public function getChannels()
+	{
+		return $this->_fetchAndStore(
+			'channels.list',
+			['exclude_archived' => 1],
+			'channels',
+			'channels'
+		);
 	}
 
 	public function getUsers()
 	{
 
-		$result = $this->callGet('users.list');
+		return $this->_fetchAndStore(
+			'users.list',
+			[],
+			'users',
+			'members'
+		);
 
-		$this->users = array();
-		foreach ($result['members'] as $user) {
-			$this->users[$user['id']] = $user;
+	}
+
+	public function getGroups()
+	{
+		return $this->_fetchAndStore(
+			'groups.list',
+			['exclude_archived' => 1],
+			'groups',
+			'groups'
+		);
+	}
+
+	public function getIms()
+	{
+		$this->_fetchAndStore(
+			'im.list',
+			[],
+			'ims',
+			'ims'
+		);
+
+		foreach ($this->ims as $key => $im) {
+			if ($im['is_user_deleted']) {
+				unset($this->ims[$key]);
+				continue;
+			}
+
+			if (isset($this->users[$im['user']])) {
+				$userObj = $this->users[$im['user']];
+			} else {
+				$userObj = ['name' => 'slackbot'];
+			}
+
+			$userName = $userObj['name'];
+			$this->ims[$key]['name'] = $userName;
 		}
 
-		return $this->users;
+		return $this->ims;
 	}
 
 	public function getChannelByName($name)
@@ -130,21 +180,31 @@ class Slack
 		return null;
 	}
 
-	public function getMessages($channelId)
+	public function getMessages($channel)
 	{
+		// Translate $channel 'type' to a method name.
+		if ('Channels' === $channel['type']) {
+			$methodName = 'channels.history';
+		} else if ('Groups' === $channel['type']) {
+			$methodName = 'groups.history';
+		} else if ('IMs' === $channel['type']) {
+			$methodName = 'im.history';
+		} else {
+			throw new \BadMethodCallException("Channel type not recognized. Should be one of 'Channels', 'Groups', or 'IMs'");
+		}
 
 		// Check if channel has existing messages
-		$parameters = ['channel' => $channelId];
+		$parameters = ['channel' => $channel['id']];
 
-		if (isset($this->messages[$channelId])) {
-			$messages = $this->messages[$channelId];
+		if (isset($this->messages[$channel['id']])) {
+			$messages = $this->messages[$channel['id']];
 			$parameters['oldest'] = $messages[0]['ts'];
 		} else {
 			$messages = [];
 		}
 
 		$result = $this->callGet(
-			'channels.history',
+			$methodName,
 			$parameters
 		);
 
@@ -155,9 +215,9 @@ class Slack
 			array_unshift($messages, $incomingMessage);
 		}
 
-		$this->messages[$channelId] = $messages;
+		$this->messages[$channel['id']] = $messages;
 
-		return $this->messages[$channelId];
+		return $this->messages[$channel['id']];
 	}
 }
 
@@ -223,27 +283,75 @@ class Pane
 class MenuPane extends Pane
 {
 
-	public $selectedMenuItem = 0;
-	public $selectedMenuItemId;
+	public $highlightedMenuItem = 0;
+	public $highlightedMenuItemData;
 
-	public function renderMenu()
+	public function renderSubmenu($title, $items, $startLineNumber)
 	{
-		$index = 0;
-		foreach ($this->slack->channels as $channel) {
+		// Yes, we're just renaming the variable.
+		// Why two names? Because $startLineNumber really tells you what the
+		// variable is for.
+		$index = $startLineNumber;
+
+		// say hi
+		$this->addStr($index, 2, $title);
+		$index += 2;
+
+
+		foreach ($items as $item) {
 
 			$options = [];
-			if ($this->currentChannel === $channel['id'] || $this->selectedMenuItem === $index) {
+			if (
+				$this->currentChannel === $item['id']
+				|| $this->highlightedMenuItem === $index
+			) {
 				$options['reverse'] = true;
 			}
 
-			$this->addStr(3+$index, 2, $channel['name'], $options);
+			$this->addStr($index, 2, $item['name'], $options);
 
-			if ($this->selectedMenuItem === $index) {
-				$this->selectedMenuItemId = $channel['id'];
+			if ($this->highlightedMenuItem === $index) {
+				$this->highlightedMenuItemData = [
+					'type' => $title,
+					'id' => $item['id'],
+					'name' => $item['name']
+				];
 			}
 
 			$index++;
 		}
+
+	}
+
+	public function renderChannels($startLineNumber = 1)
+	{
+		$this->renderSubmenu("Channels", $this->slack->channels, $startLineNumber);
+		return $this;
+	}
+
+	public function renderGroups($startLineNumber = 20)
+	{
+		$this->renderSubmenu("Groups", $this->slack->groups, $startLineNumber);
+		return $this;
+	}
+
+	public function renderIms($startLineNumber = 30)
+	{
+		$this->renderSubmenu("IMs", $this->slack->ims, $startLineNumber);
+		return $this;
+	}
+
+	public function renderMenu()
+	{
+
+		$this->renderChannels(1);
+
+		$imStartLine = count($this->slack->channels) + 4;
+		$this->renderIms($imStartLine);
+
+		$groupStartLine = $imStartLine + count($this->slack->ims) + 4;
+		$this->renderGroups($groupStartLine);
+
 
 		return $this;
 
@@ -259,16 +367,9 @@ class RoomPane extends Pane
 		$availableLines = $this->height - 4;
 		$availableWidth = $this->width - 10;
 		$lineNumber = 3;
-		$messages = $this->slack->messages[$this->currentChannel];
+		$messages = $this->slack->messages[$this->currentChannel['id']];
 		$messages = array_reverse($messages);
 		$lines = [];
-
-		$this->addStr(
-			0,
-			2,
-			$this->slack->channels[$this->currentChannel]['name'],
-			['reverse' => true]
-		);
 
 		foreach ($messages as $index => $message) {
 
@@ -295,6 +396,13 @@ class RoomPane extends Pane
 			$this->addStr($lineNumber, 2, $line);
 			$lineNumber++;
 		}
+
+		$this->addStr(
+			1,
+			2,
+			$this->currentChannel['name'],
+			['reverse' => true]
+		);
 
 		return $this;
 	}
@@ -344,11 +452,14 @@ class Slacker
 	{
 		$this->slack->getChannels();
 		$this->slack->getUsers();
+		$this->slack->getGroups();
+		$this->slack->getIms();
 
 		// Initialize with the General channel.
 		$generalChannel = $this->slack->getChannelByName('general');
-		$this->slack->getMessages($generalChannel['id']);
-		$this->currentChannel = $generalChannel['id'];
+		$generalChannel['type'] = 'Channels';
+		$this->slack->getMessages($generalChannel);
+		$this->currentChannel = $generalChannel;
 
 	}
 
@@ -459,12 +570,12 @@ class Slacker
 		}
 
 		else if ($input === NCURSES_KEY_DOWN) {
-			$this->paneLeft->selectedMenuItem++;
+			$this->paneLeft->highlightedMenuItem++;
 			$this->paneLeft->renderMenu()->draw();
 		}
 
 		else if ($input === NCURSES_KEY_UP) {
-			$this->paneLeft->selectedMenuItem--;
+			$this->paneLeft->highlightedMenuItem--;
 			$this->paneLeft->renderMenu()->draw();
 			$processInput = false;
 
@@ -472,7 +583,7 @@ class Slacker
 
 			if (strlen($this->typing) === 0) {
 
-				$this->changeChannel($this->paneLeft->selectedMenuItemId);
+				$this->changeChannel($this->paneLeft->highlightedMenuItemData);
 
 			} else {
 
@@ -493,9 +604,9 @@ class Slacker
 
 	}
 
-	public function changeChannel($channelId)
+	public function changeChannel($channel)
 	{
-		$this->currentChannel = $channelId;
+		$this->currentChannel = $channel;
 		$this->slack->getMessages($this->currentChannel);
 		$this->paneRight->clear()->renderRoom()->draw();
 		$this->paneLeft->clear()->renderMenu()->draw();
@@ -509,7 +620,7 @@ class Slacker
 			"chat.postMessage",
 			[
 				'text'    => $message,
-				'channel' => $this->currentChannel,
+				'channel' => $this->currentChannel['id'],
 				'as_user' => true,
 				'parse'   => 'full'
 			]
@@ -517,7 +628,7 @@ class Slacker
 
 		if ($response) {
 			array_unshift(
-				$this->slack->messages[$this->currentChannel],
+				$this->slack->messages[$this->currentChannel['id']],
 				$response
 			);
 		}
