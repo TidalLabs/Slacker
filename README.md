@@ -18,7 +18,21 @@ things if the project ends up warranting it, and that's all up to you.
 Installation
 ------------
 
-This is just a PHP script. Run `slacker.php` any way you like. Here are some options:
+Quick version:
+
+	$ git clone https://github.com/TidalLabs/Slacker.git
+	$ cd Slacker
+    $ sudo make install
+
+That will copy the executable to your /usr/local/bin/ path. You can then run
+the program with:
+
+    $ slacker
+
+Then follow the instructions to install your Slack token. (See "Configuration" below)
+
+More detail: this is just a PHP script. Run `slacker.php` any way you like.
+Here are some options:
 
     $ php slacker.php
 
@@ -66,7 +80,13 @@ time if you like.
 Contributing
 ------------
 
-Use github, file issues, make pull requests, be polite, be patient.
+Use github, create github issues, use topic branches, make pull requests, be
+polite, be patient.
+
+Changelog
+---------
+
+Check out `git log` for the Changelog. I will semver and tag once we hit v1.0.0.
 
 License
 -------
