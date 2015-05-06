@@ -121,12 +121,27 @@ function debug($str) {
 class Slack
 {
 
+	/**
+	 * These store results of API calls. Most are formatted as assoc arrays
+	 * with the key as the Slack ID of the object.
+	 *
+	 * The exception is the $messages variable, which is a 2D array. The first
+	 * dimension is the channel ID of the messages underneath it.
+	 */
 	public $channels;
 	public $users;
 	public $messages;
 	public $groups;
 	public $ims;
 
+	/**
+	 * Submit a POST request to Slack API
+	 *
+	 * @param $methodName string XMLRPC-style method name for the API function you want
+	 * @param $data array associative array of POST data
+	 *
+	 * @return array|null returns the 'message' portion of the post request
+	 */
 	function callPost($methodName, $data)
 	{
 		$url = SLACK_API.$methodName;
@@ -152,6 +167,14 @@ class Slack
 		}
 	}
 
+	/**
+	 * Call a GET method from the Slack API
+	 *
+	 * @param $methodName string method name to call
+	 * @param $args array optional query params
+	 *
+	 * @return mixed the results of the call, or null
+	 */
 	function callGet($methodName, $args = null)
 	{
 		if ($args === null) {
@@ -169,6 +192,20 @@ class Slack
 		return $json;
 	}
 
+	/**
+	 * Fetch data from an endpoint, and re-key it into one of the instance
+	 * variables in this class.
+	 *
+	 * This method is used by getChannels, getUsers, etc, to make an API
+	 * request and then re-index the array with their object IDs.
+	 *
+	 * @param $methodName string the method name to call
+	 * @param $parameters array query parameters to pass to the API. Required, but empty array OK
+	 * @param $localVariable string the name of the local instance variable to put the results into ("channels", "users", etc)
+	 * @param $resultVariable string the name of the Slack API response array key to grab results from
+	 *
+	 * @return the instance variable specified by $localVariable
+	 */
 	private function _fetchAndStore($methodName, $parameters, $localVariable, $resultVariable)
 	{
 		$result = $this->callGet($methodName, $parameters);
@@ -182,6 +219,9 @@ class Slack
 		return $this->{$localVariable};
 	}
 
+	/**
+	 * Grab all the channels
+	 */
 	public function getChannels()
 	{
 		return $this->_fetchAndStore(
@@ -192,6 +232,9 @@ class Slack
 		);
 	}
 
+	/**
+	 * Grab all the users from the API
+	 */
 	public function getUsers()
 	{
 
@@ -204,6 +247,9 @@ class Slack
 
 	}
 
+	/**
+	 * Grab all the groups from the API
+	 */
 	public function getGroups()
 	{
 		return $this->_fetchAndStore(
@@ -214,6 +260,13 @@ class Slack
 		);
 	}
 
+	/**
+	 * Grab all the IMs from the api.
+	 *
+	 * This method does a little more work to clean up the query results. The
+	 * IM objects don't include a 'name' param like the others do, so we fill
+	 * it in from the users list for convenience and normalization.
+	 */
 	public function getIms()
 	{
 		$this->_fetchAndStore(
@@ -242,6 +295,11 @@ class Slack
 		return $this->ims;
 	}
 
+	/**
+	 * Find a channel object in our local cache by the channel's name
+	 *
+	 * Only really used for initializing the client to display "General" on startup.
+	 */
 	public function getChannelByName($name)
 	{
 
@@ -254,6 +312,14 @@ class Slack
 		return null;
 	}
 
+	/**
+	 * Fetch messages for a channel from the API
+	 *
+	 * Handles Channels, Groups, and IMs. Stores the messages in our local
+	 * cache. Also manages passing the timestamp for the most-recent message
+	 * we've seen to the API. We also have to do a little work to make sure we
+	 * have the messages in the right order.
+	 */
 	public function getMessages($channel)
 	{
 		// Translate $channel 'type' to a method name.
@@ -377,6 +443,9 @@ class Pane
 		ncurses_getmaxyx($this->window, $this->height, $this->width);
 	}
 
+	/**
+	 * Clears the window
+	 */
 	public function clear()
 	{
 		$this->isDirty = true;
@@ -384,6 +453,13 @@ class Pane
 		return $this;
 	}
 
+	/**
+	 * Get stats on the window write buffer.
+	 *
+	 * Returns an assoc array with 'min' (the first line number in the buffer),
+	 * 'max' (highest line number in the buffer, and 'height' (the total height
+	 * of the buffer).
+	 */
 	public function bufferStats()
 	{
 		$min = 999999999;
@@ -402,12 +478,20 @@ class Pane
 		return ['height' => $height, 'minY' => $min, 'maxY' => $max];
 	}
 
+	/**
+	 * Height of the current buffer
+	 */
 	public function bufferHeight()
 	{
 		$stats = $this->bufferStats();
 		return $stats['height'];
 	}
 
+	/**
+	 * Write the buffer to the screen
+	 *
+	 * Also resets the buffer
+	 */
 	public function playBuffer()
 	{
 		foreach ($this->buffer as $item) {
@@ -419,6 +503,11 @@ class Pane
 		return $this;
 	}
 
+	/**
+	 * Write an individual buffer command to the screen
+	 *
+	 * Probably never needs to be called directly
+	 */
 	public function playBufferItem($item)
 	{
 		// Adjust offset
@@ -446,6 +535,20 @@ class Pane
 		return $this;
 	}
 
+	/**
+	 * Write a string to a location on the screen
+	 *
+	 * This method actually adds the command to the buffer for playback later.
+	 * Do not expect this command to write immediately to the screen. That
+	 * happens when playBuffer is called, which happens in draw().
+	 *
+	 * @param $y int column
+	 * @param $x int row
+	 * @param $str string the string to write
+	 * @param $options array additional options. Currently only 'reverse' (for NCURSES_A_REVERSE) is supported.
+	 *
+	 * @return this
+	 */
 	public function addStr($y, $x, $str, $options = array())
 	{
 		$this->isDirty = true;
@@ -454,6 +557,11 @@ class Pane
 		return $this;
 	}
 
+	/**
+	 * Commit the buffer to the screen
+	 *
+	 * Also manages the border and refreshing the window
+	 */
 	public function draw($force = false)
 	{
 		if ($this->isDirty || $force) {
@@ -484,6 +592,9 @@ class MenuPane extends Pane
 	public $highlightedMenuItem = null;
 	public $highlightedMenuItemData;
 
+	/**
+	 * Render a submenu (Channels, IMs, Groups)
+	 */
 	public function renderSubmenu($title, $items, $startLineNumber)
 	{
 		// Check if we have a highlightedMenuItem set.
@@ -550,6 +661,12 @@ class MenuPane extends Pane
 		return $this;
 	}
 
+	/**
+	 * Render the whole menu
+	 *
+	 * Does some logic to figure out the spacing, that's all. Otherwise just
+	 * calls the other helper methods.
+	 */
 	public function renderMenu()
 	{
 
@@ -566,6 +683,9 @@ class MenuPane extends Pane
 
 	}
 
+	/**
+	 * Call this to scroll up one item
+	 */
 	public function scrollUp()
 	{
 		$this->highlightedMenuItem--;
@@ -574,6 +694,9 @@ class MenuPane extends Pane
 		return $this;
 	}
 
+	/**
+	 * Call this to scroll down one item
+	 */
 	public function scrollDown()
 	{
 		$this->highlightedMenuItem++;
@@ -582,6 +705,9 @@ class MenuPane extends Pane
 		return $this;
 	}
 
+	/**
+	 * Keeps the current highlighted item on-screen
+	 */
 	public function fixScrollTop()
 	{
 
@@ -603,6 +729,12 @@ class MenuPane extends Pane
 class RoomPane extends Pane
 {
 
+	/**
+	 * Renders the contents of the room
+	 *
+	 * Does some cool word/line wrapping to make sure we're formatted nicely
+	 * for our window size
+	 */
 	public function renderRoom()
 	{
 		$availableLines = $this->height - 4;
@@ -623,22 +755,25 @@ class RoomPane extends Pane
 			$messageText = ($user ? $user['name'] : 'bot').': '.$message['text'];
 			$messageText = $this->slack->formatMessage($messageText);
 			$messageText = wordwrap($messageText, $availableWidth, "\n\t");
+
 			foreach (explode("\n", $messageText) as $line) {
 				$lines[] = $line;
 			}
 
+			// Blank line below each message
 			$lines[] = '';
-
 		}
 
 		// Slice $lines to the last $availableLines
 		$lines = array_slice($lines, -1*$availableLines, $availableLines);
 
+		// Actually writes to the buffer, finally
 		foreach ($lines as $index => $line) {
 			$this->addStr($lineNumber, 2, $line);
 			$lineNumber++;
 		}
 
+		// Print the channel name at the top
 		$this->addStr(
 			1,
 			2,
@@ -660,6 +795,18 @@ class RoomPane extends Pane
 class Slacker
 {
 	public $slack;
+
+	/**
+	 * $currentChannel is not always a channel, could be a Group or an IM too
+	 *
+	 * It has a specific format. Looks like this:
+	 *
+	 *     [
+	 *         'name' => ...
+	 *         'id' => ...
+	 *         'type' => Groups, Channels, or IMs
+	 *     ]
+	 */
 	public $currentChannel;
 
 	public $paneMain;
@@ -669,8 +816,12 @@ class Slacker
 
 	public $running = true;
 	public $iterations = 0;
+
+	// Current contents of the message box
 	public $typing = '';
 
+	// Auto-reloads the _current_ room only. This is not relevant to unread
+	// counts for all channels
 	public $autoreloadRate = 1; // seconds
 	public $lastAutoreload = 0; // timestamp
 
@@ -753,7 +904,9 @@ class Slacker
 		$this->paneRight->clear()->renderRoom()->draw();
 	}
 
-
+	/**
+	 * App starting point
+	 */
 	public function start()
 	{
 
@@ -785,6 +938,17 @@ class Slacker
 
 	}
 
+	/**
+	 * Non-blocking user input
+	 *
+	 * ncurses_getch is a blocking command, which we don't want. So we first
+	 * check STDIN via stream_select to see if there are any messages there
+	 * that would be non-blocking. If we find one, we call ncurses_getch --
+	 * which is blocking, but won't block because there's a keystroke queued.
+	 * If we don't find anything just return null
+	 *
+	 * @return int|null character key code (decode with `chr()`), or null
+	 */
 	public function getInput()
 	{
 		$timeout = 1000000;
@@ -807,6 +971,17 @@ class Slacker
 
 	}
 
+	/**
+	 * Handles user input logic
+	 *
+	 * Key Up and Key Down to select rooms
+	 * Enter will post message if one is written, or select room if no message
+	 * is written
+	 * Escape exits the program
+	 * Backspace does what's expected of it
+	 * Otherwise, if we get a printable character, add it to $this->typing and
+	 * display it in the textbox
+	 */
 	public function handleInput()
 	{
 
@@ -849,6 +1024,9 @@ class Slacker
 
 	}
 
+	/**
+	 * Switch to a new room
+	 */
 	public function changeChannel($channel)
 	{
 		$this->currentChannel = $channel;
@@ -858,6 +1036,13 @@ class Slacker
 		return $this;
 	}
 
+	/**
+	 * Post a message to the current room
+	 *
+	 * Will also refresh the current room
+	 *
+	 * @param $message string the message to send
+	 */
 	public function sendMessage($message)
 	{
 		// Send message
@@ -886,7 +1071,6 @@ class Slacker
 /**
  * The app starts here.
  */
-
 
 $slack = new Slack();
 $slacker = new Slacker($slack);
