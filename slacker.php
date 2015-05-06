@@ -293,6 +293,52 @@ class Slack
 
 		return $this->messages[$channel['id']];
 	}
+
+	/**
+	 * Replace Slack message tokens like <@UXORUER> with their human-readable
+	 * counterparts.
+	 *
+	 * This method will replace user tags and channel tags. See here:
+	 * https://api.slack.com/docs/formatting
+	 *
+	 * @param $messageText string text of the message to format
+	 *
+	 * @return string ready-to-display message
+	 */
+	public function formatMessage($messageText) {
+		preg_match_all("/<(.*?)>/", $messageText, $matches);
+
+		foreach ($matches[1] as $match) {
+
+			$itemId = substr($match, 1);
+			if (($pipePos = strpos($itemId, '|')) !== false) {
+				$itemId = substr($itemId, 0, $pipePos);
+			}
+
+			$fullMatch = '<'.$match.'>';
+			if ('@' === substr($match, 0, 1)) {
+				// It's a user.
+				if (isset($this->users[$itemId])) {
+					$messageText = str_replace(
+						$fullMatch,
+						'@'.$this->users[$itemId]['name'],
+						$messageText
+					);
+				}
+			} else if ('#' === substr($match, 0, 1)) {
+				// It's a Channel
+				if (isset($this->channels[$itemId])) {
+					$messageText = str_replace(
+						$fullMatch,
+						'#'.$this->channels[$itemId]['name'],
+						$messageText
+					);
+				}
+			}
+		}
+
+		return $messageText;
+	}
 }
 
 
@@ -575,6 +621,7 @@ class RoomPane extends Pane
 			}
 
 			$messageText = ($user ? $user['name'] : 'bot').': '.$message['text'];
+			$messageText = $this->slack->formatMessage($messageText);
 			$messageText = wordwrap($messageText, $availableWidth, "\n\t");
 			foreach (explode("\n", $messageText) as $line) {
 				$lines[] = $line;
@@ -624,7 +671,7 @@ class Slacker
 	public $iterations = 0;
 	public $typing = '';
 
-	public $autoreloadRate = 5; // seconds
+	public $autoreloadRate = 1; // seconds
 	public $lastAutoreload = 0; // timestamp
 
 
