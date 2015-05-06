@@ -37,6 +37,11 @@ define("ESCAPE_KEY", 27);
 define("ENTER_KEY", 13);
 define("BACKSPACE_KEY", 263);
 
+function debug($str) {
+	$stderr = fopen('php://stderr', 'w+');
+	fwrite($stderr, $str."\n");
+	fclose($stderr);
+}
 
 /**
  * The next large section will be defining a bunch of classes. This is sloppy
@@ -233,6 +238,9 @@ class Pane
 	public $isDirty = true;
 	public $slack;
 	public $currentChannel;
+	public $scrollTop = 0;
+
+	private $buffer;
 
 	public function __construct($height, $width, $y, $x)
 	{
@@ -249,19 +257,72 @@ class Pane
 		return $this;
 	}
 
-	public function addStr($y, $x, $str, $options = array())
+	public function bufferStats()
 	{
-		$this->isDirty = true;
+		$min = 999999999;
+		$max = 0;
 
-		if (isset($options['reverse']) && $options['reverse']) {
+		foreach ($this->buffer as $item) {
+			if ($item['y'] < $min) {
+				$min = $item['y'];
+			}
+			if ($item['y'] > $max) {
+				$max = $item['y'];
+			}
+		}
+
+		$height = ($max - $min) + 1;
+		return ['height' => $height, 'minY' => $min, 'maxY' => $max];
+	}
+
+	public function bufferHeight()
+	{
+		$stats = $this->bufferStats();
+		return $stats['height'];
+	}
+
+	public function playBuffer()
+	{
+		foreach ($this->buffer as $item) {
+			$this->playBufferItem($item);
+		}
+
+		$this->buffer = [];
+
+		return $this;
+	}
+
+	public function playBufferItem($item)
+	{
+		// Adjust offset
+		$item['y'] -= $this->scrollTop;
+
+		// Skip this item if it's offscreen
+		if ($item['y'] < 1) {
+			return $this;
+		}
+
+		if ($item['y'] >= $this->height-1) {
+			return $this;
+		}
+
+		if (isset($item['options']['reverse']) && $item['options']['reverse']) {
 			ncurses_wattron($this->window, NCURSES_A_REVERSE);
 		}
 
-		ncurses_mvwaddstr($this->window, $y, $x, $str);
+		ncurses_mvwaddstr($this->window, $item['y'], $item['x'], $item['str']);
 
-		if (isset($options['reverse']) && $options['reverse']) {
+		if (isset($item['options']['reverse']) && $item['options']['reverse']) {
 			ncurses_wattroff($this->window, NCURSES_A_REVERSE);
 		}
+
+		return $this;
+	}
+
+	public function addStr($y, $x, $str, $options = array())
+	{
+		$this->isDirty = true;
+		$this->buffer[] = ['y' => $y, 'x' => $x, 'str' => $str, 'options' => $options];
 
 		return $this;
 	}
@@ -273,6 +334,9 @@ class Pane
 			if ($this->isBordered) {
 				ncurses_wborder($this->window, 0, 0, 0, 0, 0, 0, 0, 0);
 			}
+
+			$this->bufferHeight();
+			$this->playBuffer();
 
 			ncurses_wrefresh($this->window);
 		}
@@ -368,6 +432,33 @@ class MenuPane extends Pane
 
 	}
 
+	public function scrollUp()
+	{
+		$this->highlightedMenuItem--;
+		$this->fixScrollTop();
+		$this->clear()->renderMenu()->draw();
+		return $this;
+	}
+
+	public function scrollDown()
+	{
+		$this->highlightedMenuItem++;
+		$this->fixScrollTop();
+		$this->clear()->renderMenu()->draw();
+		return $this;
+	}
+
+	public function fixScrollTop()
+	{
+
+		if ($this->highlightedMenuItem > $this->height - 10) {
+			$this->scrollTop = 10 - ($this->height - $this->highlightedMenuItem);
+		}
+
+		if ($this->highlightedMenuItem < $this->height - 10) {
+			$this->scrollTop = 0;
+		}
+	}
 }
 
 class RoomPane extends Pane
@@ -581,14 +672,11 @@ class Slacker
 		}
 
 		else if ($input === NCURSES_KEY_DOWN) {
-			$this->paneLeft->highlightedMenuItem++;
-			$this->paneLeft->renderMenu()->draw();
+			$this->paneLeft->scrollDown();
 		}
 
 		else if ($input === NCURSES_KEY_UP) {
-			$this->paneLeft->highlightedMenuItem--;
-			$this->paneLeft->renderMenu()->draw();
-			$processInput = false;
+			$this->paneLeft->scrollUp();
 
 		} else if ($input === ENTER_KEY) {
 
@@ -609,7 +697,7 @@ class Slacker
 			$this->typing = substr($this->typing, 0, -1);
 		}
 
-		else if ($input) {
+		else if (ctype_print($input)) {
 			$this->typing .= chr($input);
 		}
 
