@@ -1,5 +1,58 @@
-#!/usr/bin/php5
+#!/usr/bin/php
 <?php
+
+/**
+ * Slacker App
+ * ===========
+ *
+ * Built with love by Burak Kanber of Tidal Labs. Licensed GPLv3 (see
+ * LICENSE.md) so that this always stays a for-fun project.
+ *
+ * Overview
+ * --------
+ *
+ * I'm sorry that all the code is in one file. Most of you don't consider it a
+ * good pattern. I don't either. But it was this or the alternatives of 1)
+ * making this a phar with that whole build system or 2) make some kind of
+ * Make-based build system. So I went with the light and easy option. This lets
+ * you just copy this single file wherever you want, run it with a php
+ * interpreter, and it just works.
+ *
+ * This file has a little bit of stray application logic (defining constants,
+ * opening the token file, and bootstrapping the Slack and Slacker objects),
+ * and several classes for the management of this app:
+ *
+ * - Slack - a simple wrapper around the slack API
+ * - Pane - an abstraction of an ncurses window
+ * - MenuPane - for the channel/group/im selection pane
+ * - RoomPane - for displaying room contents
+ * - Slacker - the application logic class (app loop, input handling, etc)
+ *
+ * App Lifecycle and Architecture
+ * ------------------------------
+ *
+ * The app starts by checking for a token in ~/.slack_token. If there's no file
+ * there, we alert the user, provide instructions, and exit.
+ *
+ * Otherwise, we initialize a Slack object, authenticated to the API, and give
+ * it to a Slacker object. The Slacker object orchestrates the interactions
+ * between all the components, and the user.
+ *
+ * The Pane class manages basic ncurses commands. It also maintains a write
+ * buffer. We use a buffer so we can check things like "height of the screen to
+ * be drawn" before drawing it. We use that for scrolling. It's actually pretty
+ * cool. I should write a blog post about that. It's not novel or anything.
+ * Just cool for us PHP folks that rarely get to do this. Routine for system
+ * programmers.
+ *
+ * The application loop runs after calling `start()` and will go infinitely.
+ * The user can exit pressing ESC, and SIGINT (C-c) seems to work fine too.
+ *
+ * At some point in the future, we'll also write to a ~/.slack_notification
+ * file, so that other programs like tmux can listen and display slack
+ * notifications ie in the status bar.
+ *
+ */
 
 /**
  * First thing's first. Get a slack token.
@@ -31,22 +84,38 @@ EODOC;
 $token = file_get_contents($tokenFilePath);
 $token = trim($token);
 
+// App-wide. Eventually we should inject this into the Slack object. TECH DEBT
 define('SLACK_TOKEN', $token);
 define('SLACK_API',  "https://slack.com/api/");
 define("ESCAPE_KEY", 27);
 define("ENTER_KEY", 13);
-define("BACKSPACE_KEY", 263);
 
+/**
+ * Prints $str to STDOUT.
+ *
+ * Only use this in development. Here's a good pattern:
+ *
+ *     php slacker.php 2> debug.log
+ *
+ */
 function debug($str) {
 	$stderr = fopen('php://stderr', 'w+');
 	fwrite($stderr, $str."\n");
 	fclose($stderr);
 }
 
+
 /**
  * The next large section will be defining a bunch of classes. This is sloppy
  * and hard to read because I haven't figured out how to make PHARs yet so this
  * all needs to be in one file, for now.
+ */
+
+/**
+ * Abstracts the Slack API.
+ *
+ * Helps maintain and organize data on channels, users, messages, groups, ims,
+ * etc. Lots of convenience functions for accessing and manipulating this data.
  */
 
 class Slack
@@ -227,6 +296,18 @@ class Slack
 }
 
 
+/**
+ * Abstracts ncurses windows
+ *
+ * Has a few nice conveniences over ncurses. The only "novel" feature of this
+ * class is the scrolling buffer. We're buffering addstr commands so we can
+ * figure out how tall the screen would be before writing it. We can then
+ * manipulate the buffer to make it scroll before writing it to the screen.
+ *
+ * Make an instance of this class if you want to make a "window" (what I call a
+ * "pane") on the screen. This class is much nicer than using the ncurses*
+ * functions directly.
+ */
 class Pane
 {
 	public $height;
@@ -344,6 +425,13 @@ class Pane
 
 }
 
+/**
+ * Manages the Channels/IMs/Groups menu
+ *
+ * Extends from Pane. This is more of a concrete class than an abstract one:
+ * it's all about managing that menu. It displays it, and handles the logic for
+ * selecting and switching rooms.
+ */
 class MenuPane extends Pane
 {
 
@@ -461,6 +549,11 @@ class MenuPane extends Pane
 	}
 }
 
+/**
+ * Manages the chat room view
+ *
+ * Concrete class that manages word-wrapping and rendering chat history.
+ */
 class RoomPane extends Pane
 {
 
@@ -511,6 +604,12 @@ class RoomPane extends Pane
 
 }
 
+/**
+ * The application class
+ *
+ * Manages the various Panes in the app, manages the event loop, manages input
+ * and UX, and other application-level features.
+ */
 class Slacker
 {
 	public $slack;
