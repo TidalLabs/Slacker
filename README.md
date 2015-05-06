@@ -74,8 +74,7 @@ Hit Escape to exit.
 
 There are literally no other features right now. There are no colors. There are
 no options. There are no "unread" counts. There are no unit tests. There's only
-one class and the rest of the code is procedural. We can fix these things over
-time if you like.
+one file and no build system. We can fix these things over time if you like.
 
 Contributing
 ------------

@@ -84,11 +84,9 @@ EODOC;
 $token = file_get_contents($tokenFilePath);
 $token = trim($token);
 
-// App-wide. Eventually we should inject this into the Slack object. TECH DEBT
-define('SLACK_TOKEN', $token);
-define('SLACK_API',  "https://slack.com/api/");
-define("ESCAPE_KEY", 27);
-define("ENTER_KEY", 13);
+define('SLACK_API', 'https://slack.com/api/');
+define('ESCAPE_KEY', 27);
+define('ENTER_KEY', 13);
 
 /**
  * Prints $str to STDOUT.
@@ -121,6 +119,9 @@ function debug($str) {
 class Slack
 {
 
+	// API token for the current user and team
+	private $token;
+
 	/**
 	 * These store results of API calls. Most are formatted as assoc arrays
 	 * with the key as the Slack ID of the object.
@@ -135,6 +136,14 @@ class Slack
 	public $ims;
 
 	/**
+	 * Constructor takes a Slack token
+	 */
+	public function __construct($token)
+	{
+		$this->token = $token;
+	}
+
+	/**
 	 * Submit a POST request to Slack API
 	 *
 	 * @param $methodName string XMLRPC-style method name for the API function you want
@@ -145,7 +154,7 @@ class Slack
 	function callPost($methodName, $data)
 	{
 		$url = SLACK_API.$methodName;
-		$data['token'] = SLACK_TOKEN;
+		$data['token'] = $this->token;
 
 		// use key 'http' even if you send the request to https://...
 		$options = array(
@@ -181,7 +190,7 @@ class Slack
 			$args = array();
 		}
 
-		$args['token'] = SLACK_TOKEN;
+		$args['token'] = $this->token;
 
 		$raw = file_get_contents(
 			SLACK_API.$methodName.'?'.http_build_query($args)
@@ -1072,7 +1081,7 @@ class Slacker
  * The app starts here.
  */
 
-$slack = new Slack();
+$slack = new Slack($token); // Remember that token from the top of the file?
 $slacker = new Slacker($slack);
 $slacker->start();
 
