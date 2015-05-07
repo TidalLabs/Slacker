@@ -531,14 +531,23 @@ class Pane
 			return $this;
 		}
 
-		if (isset($item['options']['reverse']) && $item['options']['reverse']) {
-			ncurses_wattron($this->window, NCURSES_A_REVERSE);
+		$optionMapping = [
+			'reverse' => NCURSES_A_REVERSE,
+			'bold' => NCURSES_A_BOLD
+		];
+
+		foreach ($optionMapping as $option => $ncursesAttribute) {
+			if (isset($item['options'][$option]) && $item['options'][$option]) {
+				ncurses_wattron($this->window, $ncursesAttribute);
+			}
 		}
 
 		ncurses_mvwaddstr($this->window, $item['y'], $item['x'], $item['str']);
 
-		if (isset($item['options']['reverse']) && $item['options']['reverse']) {
-			ncurses_wattroff($this->window, NCURSES_A_REVERSE);
+		foreach ($optionMapping as $option => $ncursesAttribute) {
+			if (isset($item['options'][$option]) && $item['options'][$option]) {
+				ncurses_wattroff($this->window, $ncursesAttribute);
+			}
 		}
 
 		return $this;
@@ -623,7 +632,7 @@ class MenuPane extends Pane
 		$index = $startLineNumber;
 
 		// say hi
-		$this->addStr($index, 2, $title);
+		$this->addStr($index, 2, $title, ['bold' => true]);
 		$index += 2;
 
 
