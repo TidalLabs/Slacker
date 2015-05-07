@@ -55,7 +55,33 @@
  */
 
 /**
- * First thing's first. Get a slack token.
+ * First thing's first. Check if ncurses is available.
+ */
+
+if (!function_exists('ncurses_init')) {
+
+echo <<<EODOC
+
+Slacker: PHP ncurses is not available
+=====================================
+
+This app requires the ncurses PHP extension.
+
+On Ubuntu you can try to automatically install dependencies by running
+'sudo make ubuntu-dependencies'
+
+For other platforms, or if that doesn't work, check out the README.md for more
+information on installation dependencies.
+ 
+
+EODOC;
+
+	exit;
+
+}
+
+/**
+ * First thing's second. Get a slack token.
  */
 
 $tokenFile = $_SERVER['HOME']."/.slack_token";
@@ -65,8 +91,8 @@ if (!file_exists($tokenFilePath)) {
 echo <<<EODOC
 
 
-Slack CLI App
-=============
+Slacker CLI App
+===============
 
 You need to install a slack API token at {$tokenFile}.
 
