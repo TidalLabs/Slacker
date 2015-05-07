@@ -43,6 +43,26 @@ Here are some options:
 	$ sudo cp slacker.php /usr/local/bin/slacker
 	$ slacker
 
+Installation Dependencies
+-------------------------
+
+Slacker requires the PHP CLI executable compiled with ncurses support.
+
+If you don't know how to do all of that, and are on Ubuntu, just run
+`sudo make ubuntu-dependencies` to get the job done. That _might_ work on
+Debian too, but I haven't tested it.
+
+For other systems, you basically have to do the following:
+
+1) Ensure php5-cli, php5-dev, php-pear, and libncursesw5-dev are installed. Usually a package manager can take care of this for you. On Ubuntu or debian `apt-get install` does the trick.
+
+2) Install the PHP ncurses with `sudo pecl install ncurses`. You might need to resolve some other packages if the pecl command fails.
+
+3) Once pecl successfully installs ncurses, add "extension=ncurses.so" to the bottom of your php.ini file. This might be located somewhere like /etc/php5/cli/php.ini.
+
+If you've figured this out on a non-debian system, it'd be great if you could
+submit a pull request adding your system to the Makefile.
+
 Configuration
 -------------
 
