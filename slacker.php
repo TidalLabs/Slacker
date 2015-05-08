@@ -115,7 +115,7 @@ define('ESCAPE_KEY', 27);
 define('ENTER_KEY', 13);
 
 /**
- * Prints $str to STDOUT.
+ * Prints $str to STDERR.
  *
  * Only use this in development. Here's a good pattern:
  *
