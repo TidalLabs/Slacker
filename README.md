@@ -9,6 +9,8 @@ library and is not yet intended to be developed on top of. It's not even very
 good. This is just a simple, silly command line Slack client. But if you live
 in tmux or the command line like me, you might just like it.
 
+[Slacker Screenshot](http://i.imgur.com/NS0P2u9.png)
+
 Right now this is a goof project. But if the world loves it and wants to
 contribute to it, then I will maintain the app and make it a little more
 robust. Currently there's no testing, autoloading, no options, documentation,
@@ -93,7 +95,7 @@ the room for you.
 Hit Escape to exit.
 
 There are literally no other features right now. There are no colors. There are
-no options. There are no "unread" counts. There are no unit tests. There's only
+no options. Unread counts probably don't work. There are no unit tests. There's only
 one file and no build system. We can fix these things over time if you like.
 
 Contributing
@@ -123,7 +125,8 @@ Right now the plan for this repository is for me to continue contrbuting it
 just to clean up some code and add the occasional feature. If I start using the
 app every day, I'm sure certain things will bug me and I'll fix them. But this
 isn't professional-grade software and isn't intended to be. There are no unit
-tests and the code is poorly organized and procedural. If you want to help me
+tests and the code is poorly organized. If you want to help me
 fix that, please feel free to contribute! I'm happy to maintain this
 repository, but I don't want to hear criticism about not making this code
-professional enough as I was never planning on sharing it publicly.
+professional enough as I was never planning on sharing it publicly and only
+made an attempt to clean if up after deciding to open source it ;).

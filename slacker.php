@@ -372,15 +372,28 @@ class Slack
 
 	/**
 	 * Grab all the channels
+	 *
+	 * Removes channels that you're not a member of from the list. We could
+	 * simply hide these channels from display. But it's fewer lines of code to
+	 * just remove them completely. And removing them completely means they
+	 * don't get refreshed every couple of seconds.
 	 */
 	public function getChannels()
 	{
-		return $this->_fetchAndStore(
+		$this->_fetchAndStore(
 			'channels.list',
 			['exclude_archived' => 1],
 			'channels',
 			'channels'
 		);
+
+		foreach ($this->channels as $channelId => $channel) {
+			if (isset($channel['is_member']) && $channel['is_member'] === false) {
+				unset($this->channels[$channelId]);
+			}
+		}
+
+		return $this->channels;
 	}
 
 	/**
