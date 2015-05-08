@@ -672,7 +672,13 @@ class MenuPane extends Pane
 				$options['reverse'] = true;
 			}
 
-			$this->addStr($index, 2, $item['name'], $options);
+			$text = '';
+			if (isset($item['unread_count_display']) && $item['unread_count_display']) {
+				$text .= "[".$item['unread_count_display']."] ";
+			}
+			$text .= $item['name'];
+
+			$this->addStr($index, 2, $text, $options);
 
 			if ($this->highlightedMenuItem === $index) {
 				$this->highlightedMenuItemData = [
