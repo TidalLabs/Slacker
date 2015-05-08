@@ -9,7 +9,7 @@ library and is not yet intended to be developed on top of. It's not even very
 good. This is just a simple, silly command line Slack client. But if you live
 in tmux or the command line like me, you might just like it.
 
-[Slacker Screenshot](http://i.imgur.com/NS0P2u9.png)
+![Slacker Screenshot](http://i.imgur.com/NS0P2u9.png)
 
 Right now this is a goof project. But if the world loves it and wants to
 contribute to it, then I will maintain the app and make it a little more
