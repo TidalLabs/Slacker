@@ -161,6 +161,10 @@ class Slack
 	public $groups;
 	public $ims;
 
+	// Counter used internally to rate limit channels.info calls
+	public $channelInfoCounter = 0;
+	public $groupInfoCounter = 0;
+
 	/**
 	 * Constructor takes a Slack token
 	 */
@@ -225,6 +229,96 @@ class Slack
 		$json = json_decode($raw, true);
 
 		return $json;
+	}
+
+	/**
+	 * Fetch and store groups.info
+	 *
+	 * @param $groupId string group id
+	 */
+
+	public function getGroupInfo($groupId)
+	{
+		$response = $this->callGet('groups.info', ['group' => $groupId]);
+
+		if ($response && $response['ok'] && $response['group']) {
+			$this->groups[$groupId] = $response['group'];
+		}
+
+		return $this->groups[$groupId];
+	}
+
+	/**
+	 * Fetch and store channels.info
+	 *
+	 * @param $channelId string channel id
+	 */
+
+	public function getChannelInfo($channelId)
+	{
+		$response = $this->callGet('channels.info', ['channel' => $channelId]);
+
+		if ($response && $response['ok'] && $response['channel']) {
+			$this->channels[$channelId] = $response['channel'];
+		}
+
+		return $this->channels[$channelId];
+	}
+
+	/**
+	 * Call getChannelInfo for all channels
+	 */
+	public function getAllChannelInfo()
+	{
+		foreach ($this->channels as $channelId => $channel) {
+			$this->getChannelInfo($channelId);
+		}
+	}
+
+	/**
+	 * Calls getgroupInfo for a different group each time it's called
+	 *
+	 * Used so we can refresh only one group per sample period.
+	 */
+	public function getNextGroupInfo()
+	{
+		$i = 0;
+		foreach ($this->groups as $groupId => $group) {
+			if ($i === $this->groupInfoCounter) {
+				$this->getGroupInfo($groupId);
+				break;
+			}
+			$i++;
+		}
+
+		$this->groupInfoCounter++;
+
+		if ($this->groupInfoCounter > count($this->groups)) {
+			$this->groupInfoCounter = 0;
+		}
+	}
+
+	/**
+	 * Calls getChannelInfo for a different channel each time it's called
+	 *
+	 * Used so we can refresh only one channel per sample period.
+	 */
+	public function getNextChannelInfo()
+	{
+		$i = 0;
+		foreach ($this->channels as $channelId => $channel) {
+			if ($i === $this->channelInfoCounter) {
+				$this->getChannelInfo($channelId);
+				break;
+			}
+			$i++;
+		}
+
+		$this->channelInfoCounter++;
+
+		if ($this->channelInfoCounter > count($this->channels)) {
+			$this->channelInfoCounter = 0;
+		}
 	}
 
 	/**
@@ -676,6 +770,7 @@ class MenuPane extends Pane
 			if (isset($item['unread_count_display']) && $item['unread_count_display']) {
 				$text .= "[".$item['unread_count_display']."] ";
 			}
+
 			$text .= $item['name'];
 
 			$this->addStr($index, 2, $text, $options);
@@ -875,6 +970,12 @@ class Slacker
 	public $autoreloadRate = 1; // seconds
 	public $lastAutoreload = 0; // timestamp
 
+	public $channelInfoReloadRate = 3; // seconds
+	public $lastChannelInfoReload = 0; // timestamp
+	public $groupInfoReloadRate = 5; // seconds
+	public $lastGroupInfoReload = 0; // timestamp
+	public $imInfoReloadRate = 15; // seconds
+	public $lastImInfoReload = 0; // timestamp
 
 	public function __construct($slack)
 	{
@@ -983,7 +1084,33 @@ class Slacker
 			$this->lastAutoreload = time();
 		}
 
-		//
+		// Refresh channels.info
+		if (
+			$this->channelInfoReloadRate
+			&& $this->lastChannelInfoReload < time() - $this->channelInfoReloadRate
+		) {
+			$this->slack->getNextChannelInfo();
+			$this->lastChannelInfoReload = time();
+		}
+
+		// Refresh groups.info
+		if (
+			$this->groupInfoReloadRate
+			&& $this->lastGroupInfoReload < time() - $this->groupInfoReloadRate
+		) {
+			$this->slack->getNextGroupInfo();
+			$this->lastGroupInfoReload = time();
+		}
+
+		// Refresh IMs
+		if (
+			$this->imInfoReloadRate
+			&& $this->lastImInfoReload < time() - $this->imInfoReloadRate
+		) {
+			$this->slack->ims = [];
+			$this->slack->getIms();
+			$this->lastImInfoReload = time();
+		}
 		$this->handleInput();
 
 	}
