@@ -136,6 +136,11 @@ function debug($str) {
  */
 
 /**
+ * Used for Auth or token errors.
+ */
+class AuthException extends Exception { }
+
+/**
  * Abstracts the Slack API.
  *
  * Helps maintain and organize data on channels, users, messages, groups, ims,
@@ -160,6 +165,7 @@ class Slack
 	public $messages;
 	public $groups;
 	public $ims;
+	public $me;
 
 	// Counter used internally to rate limit channels.info calls
 	public $channelInfoCounter = 0;
@@ -171,6 +177,7 @@ class Slack
 	public function __construct($token)
 	{
 		$this->token = $token;
+		$this->getMe();
 	}
 
 	/**
@@ -229,6 +236,21 @@ class Slack
 		$json = json_decode($raw, true);
 
 		return $json;
+	}
+
+	/**
+	 * Fetch and store auth.test info
+	 */
+	public function getMe()
+	{
+		$response = $this->callGet('auth.test');
+		if ($response['ok']) {
+			$this->me = $response;
+		} else {
+			throw new AuthException('Auth response was not OK');
+		}
+
+		return $this->me;
 	}
 
 	/**
@@ -1249,7 +1271,25 @@ class Slacker
  * The app starts here.
  */
 
-$slack = new Slack($token); // Remember that token from the top of the file?
+try {
+	$slack = new Slack($token); // Remember that token from the top of the file?
+} catch (AuthException $err) {
+
+echo <<<EODOC
+
+Slack API Token Error
+=====================
+
+It looks like there's something wrong with the Slack API token in the
+.slack_token file. Please make sure the token was pasted correctly, and make
+sure that there's no strange spacing or newlines in the file.
+
+ 
+
+EODOC;
+	exit;
+}
+
 $slacker = new Slacker($slack);
 $slacker->start();
 
