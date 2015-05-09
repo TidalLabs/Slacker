@@ -697,6 +697,16 @@ class Pane
 			}
 		}
 
+		// Handle colors
+		$color = 1;
+		if (isset($item['options']['color'])) {
+			$color = $item['options']['color'];
+		}
+
+		if (ncurses_has_colors()) {
+			ncurses_wcolor_set($this->window, $color);
+		}
+
 		ncurses_mvwaddstr($this->window, $item['y'], $item['x'], $item['str']);
 
 		foreach ($optionMapping as $option => $ncursesAttribute) {
@@ -917,7 +927,7 @@ class RoomPane extends Pane
 	 */
 	public function renderRoom()
 	{
-		$availableLines = $this->height - 4;
+		$availableLines = $this->height - 2;
 		$availableWidth = $this->width - 10;
 		$lineNumber = 3;
 		$messages = $this->slack->messages[$this->currentChannel['id']];
@@ -932,16 +942,26 @@ class RoomPane extends Pane
 				$user = null;
 			}
 
-			$messageText = ($user ? $user['name'] : 'bot').': '.$message['text'];
+			// We process title and text separately so we can format the title
+			// But -- we need to include the title in the text _at first_ to
+			// give wordwrap the right thing to split. So we end up having to
+			// include a string just to parse it out later.
+			$titleText = ($user ? $user['name'] : 'bot').': ';
+			$messageText = $titleText.$message['text'];
 			$messageText = $this->slack->formatMessage($messageText);
 			$messageText = wordwrap($messageText, $availableWidth, "\n\t");
+			$messageText = substr($messageText, strlen($titleText));
 
-			foreach (explode("\n", $messageText) as $line) {
-				$lines[] = $line;
+			foreach (explode("\n", $messageText) as $lineNumber => $line) {
+				$thisLine = ['text' => $line];
+				if ($lineNumber === 0) {
+					$thisLine['title'] = $titleText;
+				}
+				$lines[] = $thisLine;
 			}
 
 			// Blank line below each message
-			$lines[] = '';
+			$lines[] = ['text' => ''];
 		}
 
 		// Slice $lines to the last $availableLines
@@ -949,14 +969,23 @@ class RoomPane extends Pane
 
 		// Actually writes to the buffer, finally
 		foreach ($lines as $index => $line) {
-			$this->addStr($lineNumber, 2, $line);
+
+			if (isset($line['title'])) {
+				$this->addStr($lineNumber, 2, $line['title'], ['color' => 2]);
+				$this->addStr($lineNumber, 2+strlen($line['title']), $line['text'], ['color' => 1]);
+
+
+			} else {
+				$this->addStr($lineNumber, 2, $line['text']);
+			}
+
 			$lineNumber++;
 		}
 
 		// Print the channel name at the top
 		$this->addStr(
 			1,
-			2,
+			$this->width - strlen($this->currentChannel['name']) - 2,
 			$this->currentChannel['name'],
 			['reverse' => true]
 		);
@@ -1005,7 +1034,7 @@ class Slacker
 	public $autoreloadRate = 1; // seconds
 	public $lastAutoreload = 0; // timestamp
 
-	public $channelInfoReloadRate = 3; // seconds
+	public $channelInfoReloadRate = 2; // seconds
 	public $lastChannelInfoReload = 0; // timestamp
 	public $groupInfoReloadRate = 5; // seconds
 	public $lastGroupInfoReload = 0; // timestamp
@@ -1055,6 +1084,12 @@ class Slacker
 		ncurses_noecho();
 		ncurses_border(0,0, 0,0, 0,0, 0,0);
 		ncurses_refresh();
+
+		if (ncurses_has_colors()) {
+			ncurses_start_color();
+			ncurses_init_pair(1, NCURSES_COLOR_WHITE, NCURSES_COLOR_BLACK);
+			ncurses_init_pair(2, NCURSES_COLOR_CYAN, NCURSES_COLOR_BLACK);
+		}
 
 		$this->paneMain = new Pane(0, 0, 0, 0);
 		$this->paneLeft = new MenuPane($this->paneMain->height, 24, 0, 0);
@@ -1125,6 +1160,7 @@ class Slacker
 			&& $this->lastChannelInfoReload < time() - $this->channelInfoReloadRate
 		) {
 			$this->slack->getNextChannelInfo();
+			$this->paneLeft->clear()->renderMenu()->draw();
 			$this->lastChannelInfoReload = time();
 		}
 
@@ -1134,6 +1170,7 @@ class Slacker
 			&& $this->lastGroupInfoReload < time() - $this->groupInfoReloadRate
 		) {
 			$this->slack->getNextGroupInfo();
+			$this->paneLeft->clear()->renderMenu()->draw();
 			$this->lastGroupInfoReload = time();
 		}
 
@@ -1144,6 +1181,7 @@ class Slacker
 		) {
 			$this->slack->ims = [];
 			$this->slack->getIms();
+			$this->paneLeft->clear()->renderMenu()->draw();
 			$this->lastImInfoReload = time();
 		}
 		$this->handleInput();
