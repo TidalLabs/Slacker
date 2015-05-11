@@ -62,6 +62,18 @@ For other systems, you basically have to do the following:
 
 3) Once pecl successfully installs ncurses, add "extension=ncurses.so" to the bottom of your php.ini file. This might be located somewhere like /etc/php5/cli/php.ini.
 
+For OS X based systems, you have to do the following 
+
+1) Install pear 
+```
+curl -O http://pear.php.net/go-pear.phar
+sudo php -d detect_unicode=0 go-pear.phar`
+```
+
+2) Install the PHP ncurses with `sudo pecl install ncurses`. You might need to resolve some other packages if the pecl command fails.
+
+3) Once pecl successfully installs ncurses, add "extension=ncurses.so" to the bottom of your php.ini file. This might be located somewhere like /etc/php.ini.
+
 If you've figured this out on a non-debian system, it'd be great if you could
 submit a pull request adding your system to the Makefile.
 
