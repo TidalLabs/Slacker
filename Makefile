@@ -23,6 +23,9 @@ help:
 install:
 	cp slacker.php /usr/local/bin/slacker
 	chmod a+x /usr/local/bin/slacker
+	
+fedora-dependencies:
+	yum install php-pear php-devel php-cli php-pecl-ncurses
 
 ubuntu-dependencies:
 	apt-get update
