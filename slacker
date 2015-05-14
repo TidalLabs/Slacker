@@ -1,0 +1,161 @@
+#!/usr/bin/php
+<?php
+
+require_once 'vendor/autoload.php';
+
+/**
+ * Slacker App
+ * ===========
+ *
+ * Built with love by Burak Kanber of Tidal Labs. Licensed GPLv3 (see
+ * LICENSE.md) so that this always stays a for-fun project.
+ *
+ * Overview
+ * --------
+ *
+ * I'm sorry that all the code is in one file. Most of you don't consider it a
+ * good pattern. I don't either. But it was this or the alternatives of 1)
+ * making this a phar with that whole build system or 2) make some kind of
+ * Make-based build system. So I went with the light and easy option. This lets
+ * you just copy this single file wherever you want, run it with a php
+ * interpreter, and it just works.
+ *
+ * This file has a little bit of stray application logic (defining constants,
+ * opening the token file, and bootstrapping the Slack and Slacker objects),
+ * and several classes for the management of this app:
+ *
+ * - Slack - a simple wrapper around the slack API
+ * - Pane - an abstraction of an ncurses window
+ * - MenuPane - for the channel/group/im selection pane
+ * - RoomPane - for displaying room contents
+ * - Slacker - the application logic class (app loop, input handling, etc)
+ *
+ * App Lifecycle and Architecture
+ * ------------------------------
+ *
+ * The app starts by checking for a token in ~/.slack_token. If there's no file
+ * there, we alert the user, provide instructions, and exit.
+ *
+ * Otherwise, we initialize a Slack object, authenticated to the API, and give
+ * it to a Slacker object. The Slacker object orchestrates the interactions
+ * between all the components, and the user.
+ *
+ * The Pane class manages basic ncurses commands. It also maintains a write
+ * buffer. We use a buffer so we can check things like "height of the screen to
+ * be drawn" before drawing it. We use that for scrolling. It's actually pretty
+ * cool. I should write a blog post about that. It's not novel or anything.
+ * Just cool for us PHP folks that rarely get to do this. Routine for system
+ * programmers.
+ *
+ * The application loop runs after calling `start()` and will go infinitely.
+ * The user can exit pressing ESC, and SIGINT (C-c) seems to work fine too.
+ *
+ * At some point in the future, we'll also write to a ~/.slack_notification
+ * file, so that other programs like tmux can listen and display slack
+ * notifications ie in the status bar.
+ *
+ */
+use TidalLabs\Slacker\AuthException;
+use TidalLabs\Slacker\Slack;
+use TidalLabs\Slacker\Slacker;
+
+/**
+ * First thing's first. Check if ncurses is available.
+ */
+
+if (!function_exists('ncurses_init')) {
+
+	echo <<<EODOC
+
+Slacker: PHP ncurses is not available
+=====================================
+
+This app requires the ncurses PHP extension.
+
+On Ubuntu you can try to automatically install dependencies by running
+'sudo make ubuntu-dependencies'
+
+For other platforms, or if that doesn't work, check out the README.md for more
+information on installation dependencies.
+ 
+
+EODOC;
+
+	exit;
+
+}
+
+/**
+ * First thing's second. Get a slack token.
+ */
+
+$tokenFile = $_SERVER['HOME']."/.slack_token";
+$tokenFilePath = realpath($tokenFile);
+if (!file_exists($tokenFilePath)) {
+
+	echo <<<EODOC
+
+
+Slacker CLI App
+===============
+
+You need to install a slack API token at {$tokenFile}.
+
+Get the token here: https://api.slack.com/web
+
+Then paste the token into the {$tokenFile} file and restart this program.
+
+ 
+
+EODOC;
+
+	exit;
+}
+
+$token = file_get_contents($tokenFilePath);
+$token = trim($token);
+
+define('SLACK_API', 'https://slack.com/api/');
+define('ESCAPE_KEY', 27);
+define('ENTER_KEY', 13);
+
+/**
+ * Prints $str to STDOUT.
+ *
+ * Only use this in development. Here's a good pattern:
+ *
+ *     php slacker.php 2> debug.log
+ *
+ */
+function debug($str) {
+	$stderr = fopen('php://stderr', 'w+');
+	fwrite($stderr, $str."\n");
+	fclose($stderr);
+}
+
+/**
+ * The app starts here.
+ */
+
+try {
+	$slack = new Slack($token); // Remember that token from the top of the file?
+} catch (AuthException $err) {
+
+	echo <<<EODOC
+
+Slack API Token Error
+=====================
+
+It looks like there's something wrong with the Slack API token in the
+.slack_token file. Please make sure the token was pasted correctly, and make
+sure that there's no strange spacing or newlines in the file.
+
+ 
+
+EODOC;
+	exit;
+}
+
+$slacker = new Slacker($slack);
+$slacker->start();
+
