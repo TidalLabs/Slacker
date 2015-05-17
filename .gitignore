@@ -1,3 +1,5 @@
 *.swp
-.idea
+/.idea/
 /vendor/
+/node_modules/
+/slacker.phar
