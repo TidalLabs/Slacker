@@ -1,19 +1,19 @@
 
-var request = require('request');
-var WebSocketClient = require('websocket').client;
+const EventEmitter = require('events').EventEmitter;
+const request = require('request');
+const WebSocketClient = require('websocket').client;
+
 
 export const SLACK_API = 'https://slack.com/api/';
 
-export default class SlackAPI {
+export default class SlackAPI extends EventEmitter {
     constructor(token) {
+        super();
+
         this.token = token;
         this.users = {};
         this.messages = [];
         this.rtm = null;
-
-        this.callbacks = {
-            onReceiveMessage: null
-        };
 
         this.init();
     }
@@ -21,10 +21,6 @@ export default class SlackAPI {
     init() {
         this.initUsers();
         this.connectRTM();
-    }
-
-    onReceiveMessage(callback) {
-        this.callbacks.onReceiveMessage = callback;
     }
 
     connectRTM() {
@@ -42,9 +38,7 @@ export default class SlackAPI {
                     const data = message.utf8Data;
                     const obj = JSON.parse(data);
                     this.messages.push(obj);
-                    if (this.callbacks.onReceiveMessage) {
-                        this.callbacks.onReceiveMessage(obj);
-                    }
+                    this.emit('message', obj);
                 });
 
             });

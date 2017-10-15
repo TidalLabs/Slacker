@@ -52,7 +52,7 @@ export default class MessagesList {
         this.box.enableInput();
         this.screen.render();
         this.refresh();
-        this.api.onReceiveMessage(this.receiveMessage.bind(this));
+        this.api.on('message', this.receiveMessage.bind(this));
     }
 
     receiveMessage(obj) {

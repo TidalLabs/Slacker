@@ -20,6 +20,7 @@ export default class ChannelsList {
             tags: true,
             scrollable: true,
             mouse: true,
+            keys: true,
             border: {
                 type: 'line'
             },
@@ -65,7 +66,7 @@ export default class ChannelsList {
             if (ch.is_im) {
                 ch.name = '@' + this.api.getUserName(ch.user);
             } else if (ch.is_mpim) {
-                ch.name = ch.name
+                ch.name = '@' + ch.name
                     .replace('mpdm-', '')
                     .replace('-1', '')
                     .replace(/--/g, ', ');
