@@ -1,6 +1,11 @@
 Slacker
 =======
 
+DEPRECATED, UPGRADED, AND MOVED
+===============================
+
+**This repository is no longer maintained. However there is a newer, better, nodejs version you can use at  https://github.com/bkanber/Slackadaisical**
+
 Introduction
 ------------
 
