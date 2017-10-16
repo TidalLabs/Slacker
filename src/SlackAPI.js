@@ -7,9 +7,10 @@ const WebSocketClient = require('websocket').client;
 export const SLACK_API = 'https://slack.com/api/';
 
 export default class SlackAPI extends EventEmitter {
-    constructor(token) {
+    constructor(token, screen) {
         super();
 
+        this.screen = screen; // used only for logging here
         this.token = token;
         this.users = {};
         this.channels = {};
@@ -40,6 +41,20 @@ export default class SlackAPI extends EventEmitter {
                     const obj = JSON.parse(data);
                     this.messages.push(obj);
                     this.emit('message', obj);
+
+                    if (this.channels[obj.channel]) {
+                        if (typeof this.channels[obj.channel].history === 'undefined') {
+                            this.channels[obj.channel].history = {messages: []};
+                        }
+                        if (typeof this.channels[obj.channel].history.messages === 'undefined') {
+                            this.channels[obj.channel].history.messages = [];
+                        }
+                        this.channels[obj.channel].history.messages.unshift(obj);
+                        this.screen.log("API: Added message to channel history, now " + this.channels[obj.channel].history.messages.length + " messages in " + obj.channel);
+                    } else {
+                        this.screen.log("API: couldn't add message to channel history, channel does not exist " + obj.channel);
+                        this.screen.log(obj);
+                    }
                 });
 
             });
@@ -56,14 +71,69 @@ export default class SlackAPI extends EventEmitter {
 
     }
 
+    getChannelDisplayName(channel) {
+        let display_name = channel.name || '';
+
+        if (channel.is_im) {
+            display_name = '@' + this.getUserName(channel.user);
+        } else if (channel.is_mpim) {
+            display_name = '@' + display_name
+                .replace('mpdm-', '')
+                .replace('-1', '')
+                .replace(/--/g, ', ');
+        } else if (channel.is_channel || channel.is_private) {
+            display_name = '#' + display_name;
+        }
+
+        return display_name;
+
+    }
+
+    markChannelRead(channel, callback) {
+        let endpoint = 'channels.mark';
+        if (channel.is_im) endpoint = 'im.mark';
+        else if (channel.is_private) endpoint = 'groups.mark';
+        else if (channel.is_mpim) endpoint = 'mpim.mark';
+
+        if (this.channels[channel.id] && this.channels[channel.id].history && this.channels[channel.id].history.messages) {
+            let mostRecentMessages = this.channels[channel.id].history.messages.filter(m => typeof m.ts !== 'undefined').sort((a, b) => {
+                let ats = 0;
+                let bts = 0;
+                if (a.ts) ats = parseFloat(a.ts);
+                if (b.ts) bts = parseFloat(b.ts);
+                return ats < bts ? 1 : -1;
+            });
+
+            let mostRecentMessage = mostRecentMessages[0];
+            const payload = {channel: channel.id, ts: mostRecentMessage.ts};
+
+            this.screen.log("API: Marking channel as read");
+            this.screen.log(mostRecentMessage);
+            this.screen.log(JSON.stringify(payload));
+
+            this.post(endpoint, payload, (err, resp, body) => {
+                this.screen.log("API: Marking channel as read got response");
+                this.screen.log(JSON.stringify(body));
+                if (typeof callback === 'function') callback(body);
+            });
+        } else {
+            this.screen.log("API: Couldn't mark channel " + channel.id + " as read");
+            this.screen.log(JSON.stringify(this.channels[channel.id]));
+            this.screen.log(JSON.stringify(Object.keys(this.channels)));
+        }
+
+
+    }
+
     fetchChannelHistory(channel, callback) {
+        this.screen.log("API: Fetching channel history for " + channel.id);
         return this.get(
             'conversations.history',
             {channel: channel.id},
             (err, resp, body) => {
                 if (err) {
-                    console.log("Error fetching history");
-                    console.log(err);
+                    this.screen.log("Error fetching history");
+                    this.screen.log(err);
                 }
                 this.channels[channel.id].history = body;
                 if (typeof callback === 'function') callback(body);

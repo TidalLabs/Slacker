@@ -22,6 +22,7 @@
   },
   "dependencies": {
     "blessed": "^0.1.81",
+    "moment": "^2.19.1",
     "node-fetch": "^1.7.3",
     "request": "^2.83.0",
     "websocket": "^1.0.24",

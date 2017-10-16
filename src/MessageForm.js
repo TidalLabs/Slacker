@@ -30,6 +30,7 @@ export default class MessageForm {
             mouse: true,
             keys: true,
             inputOnFocus: true,
+            label: 'Write Message (Ctrl-o)',
             border: {type: 'line'}
         });
 

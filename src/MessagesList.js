@@ -1,6 +1,7 @@
 
-var blessed = require('blessed');
-var wrap = require('word-wrap');
+const blessed = require('blessed');
+const wrap = require('word-wrap');
+const moment = require('moment');
 
 export default class MessagesList {
 
@@ -21,6 +22,8 @@ export default class MessagesList {
             alwaysScroll: true,
             input: true,
             mouse: true,
+            vi: true,
+            keys: true,
             scrollbar: {
                 ch: " ",
                 inverse: true
@@ -38,6 +41,7 @@ export default class MessagesList {
 
         this.init();
 
+        this.loadHistory = this.loadHistory.bind(this);
     }
 
     getUserReplacementMap() {
@@ -49,7 +53,6 @@ export default class MessagesList {
     }
 
     init() {
-        // this.channel.box.append(this.box);
         this.box.enableInput();
         this.screen.render();
         this.refresh();
@@ -86,7 +89,11 @@ export default class MessagesList {
                         ? this.api.getUserName(m.user)
                         : (m.username ? m.username : 'Unknown User')
                     ;
-                    let content = '{bold}'+userName + '{/bold}: ' + (m.text ? m.text : JSON.stringify(m));
+                    let time = moment.unix(m.ts);
+                    let formattedTime = time.format('h:mma')
+                    let content = '{bold}'+userName + '{/bold} '
+                        + '{grey-fg}'+formattedTime+'{/grey-fg}: '
+                        + (m.text ? m.text : JSON.stringify(m));
                     for (const replaceId in userMap) {
                         const replaceName = userMap[replaceId];
                         content = content.replace(replaceId, replaceName);
@@ -103,12 +110,15 @@ export default class MessagesList {
 
     loadHistory(body) {
         if (body.ok) {
-            this.messages = body.messages.reverse();
+            this.messages = body.messages.slice(0).reverse();
+            this.screen.log("MessagesList: Attempt to mark channel " + this.channel.channel.id + " read");
+            this.api.markChannelRead(this.channel.channel);
         } else {
             this.messages = [{
                 text: 'Trouble loading this room. Error message was: ' + body.error + '. Try again later.',
                 username: 'Slacker App',
-                ts: 0
+                type: 'message',
+                ts: (Date.now() / 1000)
             }];
         }
         this.render();

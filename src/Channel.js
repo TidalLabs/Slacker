@@ -12,7 +12,7 @@ export default class ChannelBox {
 
         this.box = blessed.box({
             parent: this.screen,
-            label: channel.name,
+            label: this.api.getChannelDisplayName(channel) + ' (Ctrl-y)',
             top: 'top',
             left: '30%',
             width: '70%',
