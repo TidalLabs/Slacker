@@ -37,11 +37,11 @@ export default class Slacker {
             return process.exit(0);
         });
 
-        this.channelsList.onChannelChange((ch) => {
+        this.channelsList.on('select_channel', (ch) => {
             this.changeChannel(ch);
         });
 
-        this.channelsList.refresh();
+        this.channelsList.init();
     }
 
 }

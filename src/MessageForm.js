@@ -15,21 +15,22 @@ export default class MessageForm {
             width: '100%-2',
             height: '10%',
             bg: 'black',
-            border: {type: 'line'}
+            // border: {type: 'line'}
         });
 
         this.textbox = blessed.textbox({
             parent: this.form,
             left: 0,
             top: 0,
-            width: '100%-2',
-            height: '100%-2',
-            bg: 'white',
-            fg: 'black',
+            width: '100%',
+            height: '100%',
+            bg: 'black',
+            fg: 'white',
             input: true,
             mouse: true,
             keys: true,
-            inputOnFocus: true
+            inputOnFocus: true,
+            border: {type: 'line'}
         });
 
         this.textbox.key('enter', (ch, key) => {

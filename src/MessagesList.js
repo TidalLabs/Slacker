@@ -8,6 +8,7 @@ export default class MessagesList {
         this.channel = channel;
         this.screen = this.channel.screen;
         this.api = this.channel.api;
+        this.exists = true;
 
         this.box = blessed.box({
             parent: this.channel.box,
@@ -56,6 +57,7 @@ export default class MessagesList {
     }
 
     receiveMessage(obj) {
+        if (!this.exists) return null;
         if (obj.channel === this.channel.channel.id) {
             this.messages.push(obj);
             this.render();
@@ -63,22 +65,28 @@ export default class MessagesList {
     }
 
     refresh() {
-        this.api.getChannelHistory(this.channel.channel, (err, resp, body) => {this.loadHistory(body)});
+        this.api.fetchChannelHistory(this.channel.channel, history => {this.loadHistory(history)});
     }
 
     destroy() {
+        this.exists = false;
         this.box.destroy();
     }
 
     render() {
+        // prevent against
+        if (!this.box) return null;
         let lines = [];
         const width = parseInt(this.box.width) - 15;
         const userMap = this.getUserReplacementMap();
         this.messages
                 .filter(m => m.type === 'message')
                 .forEach(m => {
-                    const userName = this.api.getUserName(m.user);
-                    let content = userName + ': ' + m.text
+                    const userName = (typeof m.user !== 'undefined')
+                        ? this.api.getUserName(m.user)
+                        : (m.username ? m.username : 'Unknown User')
+                    ;
+                    let content = '{bold}'+userName + '{/bold}: ' + (m.text ? m.text : JSON.stringify(m));
                     for (const replaceId in userMap) {
                         const replaceName = userMap[replaceId];
                         content = content.replace(replaceId, replaceName);
@@ -94,7 +102,15 @@ export default class MessagesList {
     }
 
     loadHistory(body) {
-        this.messages = body.messages.reverse();
+        if (body.ok) {
+            this.messages = body.messages.reverse();
+        } else {
+            this.messages = [{
+                text: 'Trouble loading this room. Error message was: ' + body.error + '. Try again later.',
+                username: 'Slacker App',
+                ts: 0
+            }];
+        }
         this.render();
     }
 }

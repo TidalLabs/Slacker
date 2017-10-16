@@ -12,6 +12,7 @@ export default class SlackAPI extends EventEmitter {
 
         this.token = token;
         this.users = {};
+        this.channels = {};
         this.messages = [];
         this.rtm = null;
 
@@ -19,7 +20,7 @@ export default class SlackAPI extends EventEmitter {
     }
 
     init() {
-        this.initUsers();
+        this.fetchUsers();
         this.connectRTM();
     }
 
@@ -55,22 +56,23 @@ export default class SlackAPI extends EventEmitter {
 
     }
 
-    getChannels(callback) {
-        return this.get('conversations.list',
-            {exclude_archived: true, types: 'public_channel,private_channel,mpim,im', limit: 500},
-            callback);
-    }
-
-    getChannelHistory(channel, callback) {
-        return this.get('conversations.history', {channel: channel.id}, callback);
-    }
-
-    getUsers(callback) {
-        return this.get('users.list', {}, callback);
+    fetchChannelHistory(channel, callback) {
+        return this.get(
+            'conversations.history',
+            {channel: channel.id},
+            (err, resp, body) => {
+                if (err) {
+                    console.log("Error fetching history");
+                    console.log(err);
+                }
+                this.channels[channel.id].history = body;
+                if (typeof callback === 'function') callback(body);
+            }
+        );
     }
 
     getUser(id) {
-        return this.users[id] || {name: 'Unknown User'};
+        return this.users[id] || {id, name: id};
     }
 
     getUserName(id) {
@@ -81,13 +83,31 @@ export default class SlackAPI extends EventEmitter {
         this.post('chat.postMessage', {channel: channel.id, text, as_user: true}, callback);
     }
 
-    initUsers() {
-        this.getUsers((err, resp, body) => {
+    fetchChannels(callback) {
+        return this.get(
+            'conversations.list',
+            {exclude_archived: true, types: 'public_channel,private_channel,mpim,im', limit: 500},
+            (err, resp, body) => {
+
+                let out = {};
+                for (const channel of body.channels) {
+                    out[channel.id] = channel;
+                }
+                this.channels = out;
+
+                if (typeof callback === 'function') callback(out);
+            }
+        );
+    }
+
+    fetchUsers(callback) {
+        return this.get('users.list', {}, (err, resp, body) => {
             let out = {};
             body.members.forEach(member => {
                 out[member.id] = member;
             });
             this.users = out;
+            if (typeof callback === 'function') callback(out);
         });
     }
 
