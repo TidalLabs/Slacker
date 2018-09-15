@@ -50,6 +50,8 @@ Here are some options:
 	$ sudo cp slacker.php /usr/local/bin/slacker
 	$ slacker
 
+For Arch Linux, there is a [package available in the AUR](https://aur.archlinux.org/packages/slacker/).
+
 Installation Dependencies
 -------------------------
 
