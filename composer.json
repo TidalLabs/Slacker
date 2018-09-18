@@ -1,0 +1,17 @@
+{
+    "name": "tidal-labs/slacker",
+    "description": "Simple Slack client for the CLI",
+    "type": "project",
+    "require-dev": {
+        "phpunit/phpunit": "^4.6"
+    },
+	"autoload": {
+		"psr-4": {
+			"TidalLabs\\Slacker\\": "src/"
+		}
+	},
+	"bin": [
+		"slacker"
+	],
+    "license": "GPL-3.0"
+}

@@ -27,28 +27,14 @@ Installation
 
 Quick version:
 
-	$ git clone https://github.com/TidalLabs/Slacker.git
-	$ cd Slacker
-    $ sudo make install
+	$ composer global require tidal-labs/slacker
 
-That will copy the executable to your /usr/local/bin/ path. You can then run
+Composer will download and install Slacker. You can then run
 the program with:
 
     $ slacker
 
 Then follow the instructions to install your Slack token. (See "Configuration" below)
-
-More detail: this is just a PHP script. Run `slacker.php` any way you like.
-Here are some options:
-
-    $ php slacker.php
-
-	$ chmod a+x slacker.php
-	$ ./slacker.php
-
-	$ chmod a+x slacker.php
-	$ sudo cp slacker.php /usr/local/bin/slacker
-	$ slacker
 
 Installation Dependencies
 -------------------------

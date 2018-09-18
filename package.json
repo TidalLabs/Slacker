@@ -1,0 +1,7 @@
+{
+  "devDependencies": {
+    "gulp": "^3.8.11",
+    "gulp-run": "^1.6.8",
+    "gulp-shell": "^0.4.1"
+  }
+}
